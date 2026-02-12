@@ -159,6 +159,14 @@ def apply_styles_and_order():
                             # Evitar duplicar si ya tiene
                             if not cell.comment:
                                 cell.comment = Comment(comments_dict[val], "System")
+                    
+                    # ALINEACION
+                    # Columna A (idx 0 en iter_rows pero cell.column es 1-based)
+                    # Si cell.column == 1 -> Left, sino Center
+                    if cell.column == 1:
+                        cell.alignment = Alignment(horizontal='left', vertical='center')
+                    else:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
                                 
         # --- 3. GUARDAR EN ENTREGABLES ---
         # Ruta Salida: ...\KPI_SMART\ENTREGABLES\DDMMYYYY_RESUMENES\R_{PROVIDER}_{DDMMYYYY}_{HHMMSS}.xlsx

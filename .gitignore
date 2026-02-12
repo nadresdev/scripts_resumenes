@@ -1,4 +1,4 @@
-__pycache__/
 *.xlsx
+*.log
+__pycache__/
 *.csv
-.DS_Store

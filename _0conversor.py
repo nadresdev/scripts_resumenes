@@ -34,46 +34,78 @@ def select_file():
     )
     return file_path
 
-def convert_csv_to_excel():
-    csv_path = select_file()
-    
-    if not csv_path:
-        return
+def convert_file_headless(input_path, output_dir=r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\LEADS_UNICOS"):
+    if not input_path or not os.path.exists(input_path):
+        print(f"Error: Archivo no encontrado {input_path}")
+        return False
 
     try:
+        # Detectar encoding y leer
         try:
-            df = pd.read_csv(csv_path)
+             df = pd.read_csv(input_path)
         except UnicodeDecodeError:
-            try:
-                df = pd.read_csv(csv_path, encoding='latin1')
-            except Exception:
-                df = pd.read_csv(csv_path, encoding='cp1252')
-        except Exception:
-             return
+             try:
+                 df = pd.read_csv(input_path, encoding='latin1')
+             except:
+                 df = pd.read_csv(input_path, encoding='cp1252')
+        except Exception as e:
+             print(f"Error leyendo CSV: {e}")
+             return False
 
+        # Reindexar con columnas objetivo
+        # Rellenar con nulos si faltan columnas
         df_final = df.reindex(columns=target_columns)
         
-        output_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\LEADS_UNICOS"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
             
+        # Generar nombre output
+        provider_match = os.path.basename(input_path).split('.')[0]
+        # Deberiamos intentar preservar el nombre o usar timestamp?
+        # El user quiere batch. Si usamos timestamp, cada uno tendra uno distinto.
+        # Pero _1 busca "latest".
         timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
-        output_filename = f"LEADS_UNICOS_{timestamp}.xlsx"
+        
+        # Intentar mantener algo del nombre original para trazabilidad
+        # Ojo: El conversor original generaba LEADS_UNICOS_{TIMESTAMP}.xlsx
+        # Si corremos en batch, necesitaremos que el nombre sea "nuevo" para cada archivo.
+        # Pero si _1 solo busca el "latest", y corremos secuencialmente, est bien.
+        # Podriamos poner el nombre del archivo original en el output.
+        output_filename = f"LEADS_UNICOS_{provider_match}_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
 
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
             df_final.to_excel(writer, sheet_name='Leads_Unicos', index=False)
             
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showinfo("Proceso Completado", f"El archivo se ha convertido exitosamente:\n{output_path}")
-        root.destroy()
+        print(f"Conversión exitosa: {output_path}")
+        return output_path
 
     except Exception as e:
+        print(f"Error en conversión: {e}")
+        return False
+
+def convert_csv_to_excel():
+    # Modo Interactivo Original
+    csv_path = select_file()
+    if not csv_path: return
+    
+    out = convert_file_headless(csv_path)
+    if out:
         root = tk.Tk()
         root.withdraw()
-        messagebox.showerror("Error", f"Ocurrió un error:\n{e}")
+        messagebox.showinfo("Proceso Completado", f"Archivo generado:\n{out}")
+        root.destroy()
+    else:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Error", "Fallo la conversión")
         root.destroy()
 
 if __name__ == "__main__":
-    convert_csv_to_excel()
+    if len(sys.argv) > 1:
+        # Modo CLI
+        input_file = sys.argv[1]
+        out_dir = sys.argv[2] if len(sys.argv) > 2 else r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\LEADS_UNICOS"
+        convert_file_headless(input_file, out_dir)
+    else:
+        convert_csv_to_excel()
