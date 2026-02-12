@@ -14,7 +14,6 @@ PROCESSED_DIR = os.path.join(BASE_DIR, "PROCESSED_BATCH")
 # Lista de Scripts a Ejecutar en Orden
 SCRIPTS_DIR = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\SCRIPTS"
 SCRIPTS_SEQUENCE = [
-    "_0conversor.py",
     "_1Detalle_Leads_Unicos.py",
     "_2Resumen_Diario.py",
     "_3Resumen_Agentes.py",
