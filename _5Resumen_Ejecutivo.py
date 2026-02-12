@@ -245,6 +245,9 @@ def generate_executive_summary():
             arr_no_sale = np.array(all_tmo_no_sale)
             
             metrics["TMO interacciones (venta) (hh:mm:ss)"] = seconds_to_hms(sum_tmo_sale)
+            
+            metrics["TMO mediana (General) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_contact)) if len(arr_contact) > 0 else "00:00:00"
+            
             metrics["TMO mediana (venta) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_sale)) if len(arr_sale) > 0 else "00:00:00"
             
             metrics["TMO mediana (no venta) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_no_sale)) if len(arr_no_sale) > 0 else "00:00:00"
