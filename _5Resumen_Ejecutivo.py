@@ -78,39 +78,28 @@ def generate_executive_summary():
 
         # Definir el orden de filas strictamente como pidi el usuario
         row_labels = [
-            "Total leads recibidos", # todos los registros? (Todos los >= 2026 segn filtro global)
+            "Total leads recibidos", # todos los >=2026
             "Leads nicos analizados", # todos los >=2026
             "Contactados (unicos)", # todos los contactado si
             "No contactados (Unicos)", # todos los contactado no
             "Contactabilidad % (unicos)", # contactado si / leads analizados * 100
+            "Leads Cerrados", # Nuevo indicador: status=CERRADO
             "Ventas (leads insertados mes)", # leads venta Si
             "interacciones_contacto", # contar(todos los tmo>0)
-            "interacciones_sin_contacto", # contar(todos los tmo=0 o nulo) - (Aqui asumo intentos fallidos, no ausencia de intentos?)
-                                            # User dijo "contar(todos los tmo=0 o nulo)". Pero TMO=0 de intentos QUE NO SE HICIERON (cols vacas) no se cuentan.
-                                            # Solo contaremos intentos REALIZADOS con TMO=0 (ej. resultDesc tiene valor).
+            "interacciones_sin_contacto", # contar(todos los tmo=0 o nulo)
             "Conversin % (contactados)", # leads venta Si / todos los contactado si * 100
             "conversion sobre interacciones con contacto_%", # interacciones de venta / interacciones tmo > 0
-            "conv_contactado_cerrado_%", # leads contactados si / leads venta y cerrado (?) -> User: "leads contactados si /leads venta y cerrado" (Ratio Inverso?)
-                                         # O quizs "Leads cerrados" es un status especfico.
-                                         # Asumire Ratio: Contactados / Ventas
+            "conv_contactado_cerrado_%", # leads contactados si / leads venta y cerrado
             "interacciones en venta", # interacciones resuldesc= VENTA /POLIZA
-            "Total interacciones", # conteo de todos los tmo>0 (Segn user: "conteo de todos los tmo>0". Pero arriba Interacciones totales suele ser contacto + no contacto?)
-                                   # User: "Total interacciones conteo de todos los tmo>0". Ok, ser igual a interacciones_contacto entonces?
-                                   # O quizs quiso decir (tmo>0) + (tmo=0)?
-                                   # "interacciones_contacto  contar(todos los tmo>0)"
-                                   # "Total interacciones  conteo de todos los tmo>0" -> Mismo valor.
-                                   # Pondr SUMA de (Contacto + Sin Contacto) para ser ms lgico "Total", 
-                                   # pero si User insiste "conteo de todos los tmo>0", pondr interacciones_contacto.
-                                   # Voy a poner Interacciones Totales = Contacto + Sin Contacto (Intentos Totales).
+            "Total interacciones", # conteo de todos los tmo>0
             "TMO totalizado (hh:mm:ss)", # sumatoria de todos los tmo>0
-            "TMO promedio (General) (hh:mm:ss)", 
             "TMO mediana (General) (hh:mm:ss)", # mediana de todos los tmo>0
             "TMO interacciones (venta) (hh:mm:ss)", # sumatoria(tmo>0 con resuldesc = VENTA /POLIZA)
             "TMO mediana (venta) (hh:mm:ss)", # MEDIANA (tmo>0 con resuldesc = VENTA /POLIZA)
-            "TMO mediana (no venta) (hh:mm:ss)", # MEDIANA (tmo>0 con resuldesc != VENTA /POLIZA) -> "sumatoria" deca user, label dice mediana. User mix. Har Mediana.
-            "SLA OPERATIVO (10-20 Lu-Vi)", # sumatoria
-            "SLA EXTRAHORARIO (Lu-Vi)", # sumatoria
-            "SLA FIN DE SEMANA", # sumatoria
+            "TMO mediana (no venta) (hh:mm:ss)", # MEDIANA (tmo>0 con resuldesc != VENTA /POLIZA)
+            "SLA OPERATIVO (10-20 Lu-Vi)", # Mediana
+            "SLA EXTRAHORARIO (Lu-Vi)", # Mediana
+            "SLA FIN DE SEMANA", # Mediana
             "ACW Mediana (hh:mm:ss)", # ACW Mediana
             "Total tiempo llamadas" # sumatoria de todo el tiempo en llamadas (timecall)
         ]
@@ -198,9 +187,16 @@ def generate_executive_summary():
                 sum_time_call_total = sum_tmo_contact
                 
             # SLAs Sum (Segn User)
-            sla_op_sum = pd.to_numeric(df_g[df_g['time_category']=='OPERATIVO']['sla_seg'], errors='coerce').sum()
-            sla_ex_sum = pd.to_numeric(df_g[df_g['time_category']=='EXTRA']['sla_seg'], errors='coerce').sum()
-            sla_fds_sum = pd.to_numeric(df_g[df_g['time_category']=='FDS']['sla_seg'], errors='coerce').sum()
+            # SLAs Median (User Request Update)
+            sla_op_med = pd.to_numeric(df_g[df_g['time_category']=='OPERATIVO']['sla_seg'], errors='coerce').median()
+            sla_ex_med = pd.to_numeric(df_g[df_g['time_category']=='EXTRA']['sla_seg'], errors='coerce').median()
+            sla_fds_med = pd.to_numeric(df_g[df_g['time_category']=='FDS']['sla_seg'], errors='coerce').median()
+            
+            # Leads Cerrados
+            if 'status' in df_g.columns:
+                 leads_cerrados_count = df_g['status'].astype(str).str.upper().str.contains('CERRADO').sum()
+            else:
+                 leads_cerrados_count = 0
             
             # ACW Mediana
             acw_vals = pd.to_numeric(df_g['total_acw_lead'], errors='coerce').fillna(0)
@@ -216,7 +212,9 @@ def generate_executive_summary():
             
             metrics["Contactabilidad % (unicos)"] = (leads_contactados_count / total_leads * 100) if total_leads > 0 else 0
             
+            
             metrics["Ventas (leads insertados mes)"] = leads_venta_count
+            metrics["Leads Cerrados"] = leads_cerrados_count
             
             metrics["interacciones_contacto"] = total_int_contact
             metrics["interacciones_sin_contacto"] = total_int_no_contact
@@ -246,17 +244,14 @@ def generate_executive_summary():
             arr_sale = np.array(all_tmo_sale)
             arr_no_sale = np.array(all_tmo_no_sale)
             
-            metrics["TMO promedio (General) (hh:mm:ss)"] = seconds_to_hms(arr_contact.mean()) if len(arr_contact) > 0 else "00:00:00"
-            metrics["TMO mediana (General) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_contact)) if len(arr_contact) > 0 else "00:00:00"
-            
             metrics["TMO interacciones (venta) (hh:mm:ss)"] = seconds_to_hms(sum_tmo_sale)
             metrics["TMO mediana (venta) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_sale)) if len(arr_sale) > 0 else "00:00:00"
             
             metrics["TMO mediana (no venta) (hh:mm:ss)"] = seconds_to_hms(np.median(arr_no_sale)) if len(arr_no_sale) > 0 else "00:00:00"
             
-            metrics["SLA OPERATIVO (10-20 Lu-Vi)"] = seconds_to_hms(sla_op_sum) # User wants Sum here for some reason ("sumatoria")... usually SLA is avg/med delay. But requested Sum.
-            metrics["SLA EXTRAHORARIO (Lu-Vi)"] = seconds_to_hms(sla_ex_sum)
-            metrics["SLA FIN DE SEMANA"] = seconds_to_hms(sla_fds_sum)
+            metrics["SLA OPERATIVO (10-20 Lu-Vi)"] = seconds_to_hms(sla_op_med) 
+            metrics["SLA EXTRAHORARIO (Lu-Vi)"] = seconds_to_hms(sla_ex_med)
+            metrics["SLA FIN DE SEMANA"] = seconds_to_hms(sla_fds_med)
             
             metrics["ACW Mediana (hh:mm:ss)"] = seconds_to_hms(acw_med)
             metrics["Total tiempo llamadas"] = seconds_to_hms(sum_time_call_total)
@@ -294,8 +289,11 @@ def generate_executive_summary():
         
         total_metrics = get_metrics_for_group(df_filtered)
         
-        # Sobreescribir "Total leads recibidos" con el total RAW (sin filtro ao)
-        total_metrics["Total leads recibidos"] = len(df) # df original sin filtro 2026
+        # Sobreescribir "Total leads recibidos" tambin debe ser del filtro?
+        # User: "corrijo, todos los indicadores deben ser filtrados por >=2026"
+        # Antes era: total_metrics["Total leads recibidos"] = len(df)
+        # Ahora dejamos tal como calcule get_metrics_for_group(df_filtered), que ya usa len(df_filtered).
+        # No hacemos nada extra.
         
         col_vals_total = []
         for k in row_labels:
@@ -341,13 +339,14 @@ def generate_executive_summary():
                  
                  from openpyxl.comments import Comment
                  
-                 # Diccionario de comentarios para indicadores (Texto exacto usuario)
+                 # Diccionario de comentarios para indicadores (Texto exacto usuario + Actualizaciones)
                  indicadores_comments = {
-                    "Total leads recibidos": "todos los registros.",
+                    "Total leads recibidos": "todos los >=2026",
                     "Leads nicos analizados": "todos los >=2026",
                     "Contactados (unicos)": "todos los contactado si",
                     "No contactados (Unicos)": "todos los contactado no",
                     "Contactabilidad % (unicos)": "todos los contactado si/todos los >=2026 * 100",
+                    "Leads Cerrados": "Conteo de leads con status CERRADO",
                     "Ventas (leads insertados mes)": "leads venta Si",
                     "interacciones_contacto": "contar(todos los tmo>0)",
                     "interacciones_sin_contacto": "contar(todos los tmo=0 o nulo)",
@@ -357,22 +356,13 @@ def generate_executive_summary():
                     "interacciones en venta": "interacciones resuldesc= VENTA /POLIZA",
                     "Total interacciones": "conteo de todos los tmo>0",
                     "TMO totalizado (hh:mm:ss)": "sumatoria de todos los tmo>0",
-                    "TMO promedio (General) (hh:mm:ss)": "Promedio de todos los tmo>0", # User: "mediana de todos los tmo>0"? No, user said Mediana for Mediana. For Promedio user didn't specify distinct text apart from implicit Avg.
-                                                                                        # User list: "TMO promedio (General)..." missing descriptive text in specific row 657 list?
-                                                                                        # Row 657 list: "TMO promedio (General) (hh:mm:ss)	*MISSING?*"
-                                                                                        # User list 677: actually shows "TMO mediana (General)...	mediana de todos los tmo>0"
-                                                                                        # User list 657 has "TMO promedio" but no description text next to it in that block? 
-                                                                                        # Wait, user 677 image/text:
-                                                                                        # "TMO promedio (General) (hh:mm:ss)" is NOT explicitly listed with value text in the snippet provided in 677 (it skips from TMO total to TMO mediana).
-                                                                                        # But in 657 list it was present.
-                                                                                        # I will use a reasonable description for Promedio if missing, or "Promedio (todos tmo>0)".
                     "TMO mediana (General) (hh:mm:ss)": "mediana de  todos los tmo>0",
                     "TMO interacciones (venta) (hh:mm:ss)": "sumatoria(tmo>0 con resuldesc = VENTA /POLIZA)",
                     "TMO mediana (venta) (hh:mm:ss)": "MEDIANA (tmo>0 con resuldesc = VENTA /POLIZA)",
                     "TMO mediana (no venta) (hh:mm:ss)": "sumatoria(tmo>0 con resuldesc != VENTA /POLIZA)", 
-                    "SLA OPERATIVO (10-20 Lu-Vi)": "sumatoria de sla en la franja 10-20 Lu-Vi por fxCreated",
-                    "SLA EXTRAHORARIO (Lu-Vi)": "sumatoria de sla en la franja fuera de 10-20 dias Lu-Vi por fxCreated",
-                    "SLA FIN DE SEMANA": "sumatoria de sla en la franja no  Lu-Vi por fxCreated",
+                    "SLA OPERATIVO (10-20 Lu-Vi)": "Mediana de sla en la franja 10-20 Lu-Vi por fxCreated",
+                    "SLA EXTRAHORARIO (Lu-Vi)": "Mediana de sla en la franja fuera de 10-20 dias Lu-Vi por fxCreated",
+                    "SLA FIN DE SEMANA": "Mediana de sla en la franja no  Lu-Vi por fxCreated",
                     "ACW Mediana (hh:mm:ss)": "ACW Mediana",
                     "Total tiempo llamadas": "sumatoria de todo el tiempo en llamadas (timecall)"
                  }
