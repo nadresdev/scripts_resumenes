@@ -26,7 +26,7 @@ COMMENTS_EJECUTIVO = {
     "interacciones_sin_contacto": "contar(todos los tmo=0 o nulo)",
     "Conversin % (contactados)": "leads venta Si/todos los contactado si*100",
     "conversion sobre interacciones con contacto_%": "interacciones de venta/ interacciones tmo > 0",
-    "conv_contactado_cerrado_%": "leads contactados si /leads venta y cerrado",
+    "conv_contactado_cerrado_%": "leads (venta=SI Y status=CERRADO) / leads contactados * 100",
     "interacciones en venta": "interacciones resuldesc= VENTA /POLIZA",
     "Total interacciones": "conteo de todos los tmo>0",
     "TMO totalizado (hh:mm:ss)": "sumatoria de todos los tmo>0",

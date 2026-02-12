@@ -79,7 +79,7 @@ def generate_executive_summary():
         # Definir el orden de filas strictamente como pidi el usuario
         row_labels = [
             "Total leads recibidos", # todos los >=2026
-            "Leads nicos analizados", # todos los >=2026
+            "Leads Unicos analizados", # todos los >=2026
             "Contactados (unicos)", # todos los contactado si
             "No contactados (Unicos)", # todos los contactado no
             "Contactabilidad % (unicos)", # contactado si / leads analizados * 100
@@ -225,8 +225,14 @@ def generate_executive_summary():
             # interacciones de venta / interacciones tmo > 0
             metrics["conversion sobre interacciones con contacto_%"] = (total_int_sale / total_int_contact * 100) if total_int_contact > 0 else 0
             
-            # conv_contactado_cerrado_%: leads contactados si / leads venta (Ratio invertido segn literal user)
-            metrics["conv_contactado_cerrado_%"] = (leads_contactados_count / leads_venta_count) if leads_venta_count > 0 else 0
+            # Leads con Venta Y Cerrados (ambas condiciones)
+            if 'status' in df_g.columns:
+                leads_venta_cerrados = ((df_g['venta'] == True) & (df_g['status'].astype(str).str.upper().str.contains('CERRADO'))).sum()
+            else:
+                leads_venta_cerrados = 0
+            
+            # conv_contactado_cerrado_%: leads venta cerrados / leads contactados (Conversion rate)
+            metrics["conv_contactado_cerrado_%"] = (leads_venta_cerrados / leads_contactados_count * 100) if leads_contactados_count > 0 else 0
             
             metrics["interacciones en venta"] = total_int_sale
             
