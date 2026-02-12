@@ -52,6 +52,14 @@ def convert_file_headless(input_path, output_dir=r"C:\Users\dresdev\OneDrive\Des
              print(f"Error leyendo CSV: {e}")
              return False
 
+        # FILTRO: Excluir filas donde 'provider' contenga 'EXA'
+        if 'provider' in df.columns:
+            initial_count = len(df)
+            df = df[~df['provider'].astype(str).str.upper().str.contains('EXA', na=False)]
+            filtered_count = initial_count - len(df)
+            if filtered_count > 0:
+                print(f"Excluidas {filtered_count} filas con 'EXA' en provider")
+
         # Reindexar con columnas objetivo
         # Rellenar con nulos si faltan columnas
         df_final = df.reindex(columns=target_columns)
