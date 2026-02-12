@@ -82,9 +82,11 @@ def generate_agent_summary():
                 tmo = pd.to_numeric(row.get(f'tmo{i}', 0), errors='coerce') or 0
                 acw = pd.to_numeric(row.get(f'timeAcw{i}', 0), errors='coerce') or 0
                 res_desc = str(row.get(f'resultDesc{i}', '')).upper()
+                lead_status = str(row.get('status', '')).upper()
                 
                 is_contact = tmo > 0
                 is_sale = 'VENTA' in res_desc or 'POLIZA' in res_desc
+                is_cerrado = 'CERRADO' in lead_status
                 sla_val = lead_sla if i == 10 else np.nan
                 sla_cat = lead_time_cat if i == 10 else None
                 is_closer = (agent == lead_last_agent)
@@ -96,6 +98,7 @@ def generate_agent_summary():
                     'acw': acw,
                     'is_contact': is_contact,
                     'is_sale': is_sale,
+                    'is_cerrado': is_cerrado,
                     'sla': sla_val,
                     'sla_cat': sla_cat,
                     'lead_id': row.get('_id', idx), 
@@ -192,7 +195,8 @@ def calculate_agent_metrics(df_int, final_cols_order):
     contacts = df_int[df_int['is_contact'] == True].groupby('agente').size().reset_index(name='int_contacto')
     no_contacts = df_int[df_int['is_contact'] == False].groupby('agente').size().reset_index(name='int_sin_contacto')
     sales_int = df_int[df_int['is_sale'] == True].groupby('agente').size().reset_index(name='interacciones_ventas')
-    ventas = df_int[df_int['is_sale'] == True].groupby('agente').size().reset_index(name='ventas')
+    # Ventas: solo contar leads con is_sale=True Y is_cerrado=True
+    ventas = df_int[(df_int['is_sale'] == True) & (df_int['is_cerrado'] == True)].groupby('agente')['lead_id'].nunique().reset_index(name='ventas')
     total_int = df_int.groupby('agente').size().reset_index(name='interacciones_total')
     
     tmo_sum = df_int.groupby('agente')['tmo'].sum().reset_index(name='tmo_total_seg')
@@ -225,7 +229,7 @@ def calculate_agent_metrics(df_int, final_cols_order):
     for c in numeric_cols_zero: 
         if c in summary.columns: summary[c] = summary[c].fillna(0)
         
-    summary['conversion_contactos_%'] = (summary['ventas'] / summary['int_contacto']) * 100
+    summary['conversion_contactos_%'] = (summary['interacciones_ventas'] / summary['int_contacto']) * 100
     summary['conv_contactado_cerrado_%'] = (summary['ventas'] / summary['leads_cerrados']) * 100
     summary['tiempo_total_llamadas_hms'] = summary['tmo_total_seg'].apply(seconds_to_hms)
     
