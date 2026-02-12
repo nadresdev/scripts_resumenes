@@ -34,12 +34,12 @@ def format_percentage(val):
     except: return str(val)
 
 def generate_agent_summary():
-    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\DETALLE_LEADS_UNICOS"
+    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\RESUMEN_DIARIO"
     output_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\RESUMEN_AGENTES"
     if not os.path.exists(output_dir): os.makedirs(output_dir)
 
-    print(f"Buscando archivo DETALLE ms reciente en: {input_dir}")
-    latest_file = find_latest_file(input_dir, pattern='*DETALLE_LEADS_UNICOS*.xlsx')
+    print(f"Buscando archivo DIARIO ms reciente en: {input_dir}")
+    latest_file = find_latest_file(input_dir, pattern='*RESUMEN_DIARIO*.xlsx')
     if not latest_file: return
 
     print(f"Procesando: {latest_file}")

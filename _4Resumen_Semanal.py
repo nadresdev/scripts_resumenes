@@ -39,12 +39,12 @@ def format_float_2dec(val):
     except: return val
 
 def generate_weekly_summary():
-    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\DETALLE_LEADS_UNICOS"
+    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\RESUMEN_AGENTES"
     output_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\RESUMEN_SEMANAL"
     if not os.path.exists(output_dir): os.makedirs(output_dir)
 
-    print(f"Buscando archivo DETALLE ms reciente en: {input_dir}")
-    latest_file = find_latest_file(input_dir, pattern='*DETALLE_LEADS_UNICOS*.xlsx')
+    print(f"Buscando archivo AGENTES ms reciente en: {input_dir}")
+    latest_file = find_latest_file(input_dir, pattern='*RESUMEN_AGENTES*.xlsx')
     if not latest_file: return
 
     print(f"Procesando: {latest_file}")
