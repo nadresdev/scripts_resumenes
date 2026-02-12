@@ -78,7 +78,12 @@ def process_leads_detalle():
     print(f"Procesando archivo: {latest_file}")
     
     try:
-        df = pd.read_excel(latest_file, sheet_name='Leads_Unicos')
+        original_sheets = pd.read_excel(latest_file, sheet_name=None)
+        if 'Leads_Unicos' not in original_sheets:
+            print("No se encontr la hoja 'Leads_Unicos'")
+            return
+            
+        df = original_sheets['Leads_Unicos']
         provider = extract_provider(df)
         print(f"Proveedor detectado: {provider}")
         
@@ -315,6 +320,13 @@ def process_leads_detalle():
         
         print(f"Guardando en: {output_path}")
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            # Guardar hojas originales
+            for sheet_name, sheet_df in original_sheets.items():
+                if isinstance(sheet_df, pd.DataFrame):
+                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            # Guardar hoja detalle (si ya exista, se sobrescribe con la nueva versin, pero aqu es un nuevo archivo)
+            # Si 'Detalle_Leads_Unicos' estaba en original, aqu lo actualizamos.
             df_detalle.to_excel(writer, sheet_name='Detalle_Leads_Unicos', index=False)
             
         print("Proceso completado exitosamente.")
