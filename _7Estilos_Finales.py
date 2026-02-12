@@ -81,7 +81,7 @@ def apply_styles_and_order():
     input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\FRECUENCIA"
     
     print(f"Buscando archivo para estilos en: {input_dir}")
-    latest_file = find_latest_file(input_dir, pattern='*.xlsx')
+    latest_file = find_latest_file(input_dir, pattern='*FRECUENCIA*.xlsx')
     
     if not latest_file:
         print("No se encontr archivo en FRECUENCIA.")
