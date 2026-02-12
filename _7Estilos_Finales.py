@@ -42,9 +42,16 @@ COMMENTS_EJECUTIVO = {
 }
 
 COMMENTS_DIARIO_GENERIC = {
+    # Columnas comunes
+    "fecha": "Fecha del registro",
+    "agente": "Nombre del agente",
     "leads_insertados": "Total leads recibidos",
     "contactados": "Total leads con al menos 1 TMO > 0",
     "ventas": "Total leads con venta=SI",
+    "leads_cerrados": "Total leads con status CERRADO",
+    "int_contacto": "Interacciones con contacto (TMO>0)",
+    "int_sin_contacto": "Interacciones sin contacto (TMO=0)",
+    "interacciones_ventas": "Interacciones que resultaron en venta",
     "interacciones_total": "Suma de interacciones (contacto + intentos)",
     "tiempo_total_llamadas_hms": "Suma de tiempo de llamada total",
     "contactabilidad_%": "Contactados / Leads * 100",
@@ -58,15 +65,17 @@ COMMENTS_DIARIO_GENERIC = {
     "sla_operativo_mediana_hms": "Mediana SLA (10-18h L-V)",
     "sla_extra_mediana_hms": "Mediana SLA (Extra Horario)",
     "sla_fds_mediana_hms": "Mediana SLA (FDS)",
-    "timeAcw_mediana_dia_hms": "Mediana ACW por lead"
+    "timeAcw_mediana_dia_hms": "Mediana ACW por lead",
+    "hora_franja": "Franja horaria basada en fxCreated"
 }
 
 # Mapeo Hoja -> Diccionario
 SHEET_COMMENTS_MAP = {
     "Resumen_Ejecutivo": COMMENTS_EJECUTIVO,
+    "Agentes": COMMENTS_DIARIO_GENERIC,
     "Resumen_Diario": COMMENTS_DIARIO_GENERIC,
-    "Frecuencia": COMMENTS_DIARIO_GENERIC,
-    # Agentes y otros pueden usar el generico si las columnas coinciden
+    "Resumen_Semanal": COMMENTS_DIARIO_GENERIC,
+    "Frecuencia": COMMENTS_DIARIO_GENERIC
 }
 
 def find_latest_file(directory, pattern='*.xlsx'):
@@ -92,22 +101,25 @@ def apply_styles_and_order():
     try:
         wb = load_workbook(latest_file)
         
-        # --- 1. REORDENAR HOJAS ---
-        # Orden deseado: [Resumen_Ejecutivo, Resumen_Agentes, ...resto en orden original]
-        
-        # Identificar nombres reales (case sensitive)
+        # --- 1. RENOMBRAR Y REORDENAR HOJAS ---
+        # Renombrar "Resumen_Agentes" a "Agentes"
         sheet_names = wb.sheetnames
+        agents_name = next((s for s in sheet_names if 'Resumen_Agentes' in s), None)
+        if agents_name:
+            wb[agents_name].title = "Agentes"
+            print(f"Renombrado: {agents_name} -> Agentes")
         
-        # Normalizar para busqueda
+        # Orden deseado: [Resumen_Ejecutivo, Agentes, ...resto en orden original]
+        sheet_names = wb.sheetnames  # Actualizar lista tras renombrar
+        
         exec_name = next((s for s in sheet_names if 'Resumen_Ejecutivo' in s), None)
-        agents_name = next((s for s in sheet_names if 'Resumen_Agentes' in s or 'Agentes' in s), None)
+        agents_final = next((s for s in sheet_names if s == 'Agentes'), None)
         
         # Logica mover
         # Mover Agentes primero al index 0
-        if agents_name:
-            # En openpyxl, move_sheet mueve relativo. Calcular offset para ir al principio.
-            idx = wb.sheetnames.index(agents_name)
-            wb.move_sheet(wb[agents_name], offset=-idx)
+        if agents_final:
+            idx = wb.sheetnames.index(agents_final)
+            wb.move_sheet(wb[agents_final], offset=-idx)
             
         # Mover Ejecutivo despues al index 0 (empujando Agentes al 1)
         if exec_name:
@@ -130,12 +142,15 @@ def apply_styles_and_order():
                 comments_dict = SHEET_COMMENTS_MAP[sheet_name]
             else:
                 s_lower = sheet_name.lower()
-                if 'diario' in s_lower or 'frecuencia' in s_lower or 'agentes' in s_lower:
+                if 'diario' in s_lower or 'frecuencia' in s_lower or 'agentes' in s_lower or 'semanal' in s_lower:
                     comments_dict = COMMENTS_DIARIO_GENERIC
             
             # Iterar Filas
             max_row = ws.max_row
             max_col = ws.max_column
+            
+            # CASO ESPECIAL: Resumen_Ejecutivo (comentarios en Col A, no en Fila 1)
+            is_ejecutivo = sheet_name == "Resumen_Ejecutivo"
             
             for row_idx, row in enumerate(ws.iter_rows(), 1):
                 # Check si es fila TOTAL (Columna 1 contiene 'TOTAL')
@@ -153,12 +168,19 @@ def apply_styles_and_order():
                     # Encabezados (Fila 1)
                     if row_idx == 1:
                         cell.fill = fill_header
-                        # Agregar Comentario
-                        val = str(cell.value).strip() if cell.value else ""
-                        if val in comments_dict:
-                            # Evitar duplicar si ya tiene
+                        # Agregar Comentario (solo para hojas NO ejecutivo)
+                        if not is_ejecutivo:
+                            val = str(cell.value).strip() if cell.value else ""
+                            if val in comments_dict:
+                                if not cell.comment:
+                                    cell.comment = Comment(comments_dict[val], "System")
+                    
+                    # COMENTARIOS ESPECIALES: Resumen_Ejecutivo (Columna A = Indicadores)
+                    if is_ejecutivo and cell.column == 1 and row_idx > 1:
+                        indicator_val = str(cell.value).strip() if cell.value else ""
+                        if indicator_val in comments_dict:
                             if not cell.comment:
-                                cell.comment = Comment(comments_dict[val], "System")
+                                cell.comment = Comment(comments_dict[indicator_val], "System")
                     
                     # ALINEACION
                     # Columna A (idx 0 en iter_rows pero cell.column es 1-based)
