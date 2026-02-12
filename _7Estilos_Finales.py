@@ -76,13 +76,15 @@ def find_latest_file(directory, pattern='*.xlsx'):
     return max(files, key=os.path.getmtime)
 
 def apply_styles_and_order():
-    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\RESUMEN_EJECUTIVO"
+    # INPUT: Ahora toma de FRECUENCIA (salida del paso anterior)
+    # Ruta base: ...\SMART CONECT\INFORMES\KPI_SMART\FRECUENCIA
+    input_dir = r"C:\Users\dresdev\OneDrive\Desktop\SMART CONECT\INFORMES\KPI_SMART\FRECUENCIA"
     
     print(f"Buscando archivo para estilos en: {input_dir}")
-    latest_file = find_latest_file(input_dir, pattern='*_RESUMEN_EJECUTIVO_*.xlsx')
+    latest_file = find_latest_file(input_dir, pattern='*.xlsx')
     
     if not latest_file:
-        print("No se encontr archivo Resumen Ejecutivo.")
+        print("No se encontr archivo en FRECUENCIA.")
         return
 
     print(f"Procesando estilos en: {latest_file}")
@@ -158,9 +160,35 @@ def apply_styles_and_order():
                             if not cell.comment:
                                 cell.comment = Comment(comments_dict[val], "System")
                                 
-        # Guardar
-        wb.save(latest_file)
-        print("Estilos aplicados exitosamente.")
+        # --- 3. GUARDAR EN ENTREGABLES ---
+        # Ruta Salida: ...\KPI_SMART\ENTREGABLES\DDMMYYYY_RESUMENES\R_{PROVIDER}_{DDMMYYYY}_{HHMMSS}.xlsx
+        
+        from datetime import datetime
+        now = datetime.now()
+        ddmmyyyy = now.strftime("%d%m%Y")
+        hhmmss = now.strftime("%H%M%S")
+        
+        # Obtener Provider del nombre archivo input
+        # Asumimos nombre tipo "PLAYFILM_FRECUENCIA_..."
+        base_name = os.path.basename(latest_file)
+        parts = base_name.split('_')
+        provider = parts[0] if len(parts) > 0 else "UNKNOWN"
+        
+        # Directorio Base ENTREGABLES
+        freq_dir = os.path.dirname(latest_file) # KPI_SMART/FRECUENCIA
+        kpi_smart_dir = os.path.dirname(freq_dir) # KPI_SMART
+        entregables_dir = os.path.join(kpi_smart_dir, "ENTREGABLES")
+        
+        final_dir = os.path.join(entregables_dir, f"{ddmmyyyy}_RESUMENES")
+        
+        if not os.path.exists(final_dir):
+            os.makedirs(final_dir)
+            
+        final_filename = f"R_{provider}_{ddmmyyyy}_{hhmmss}.xlsx"
+        final_path = os.path.join(final_dir, final_filename)
+        
+        wb.save(final_path)
+        print(f"Estilos aplicados. Reporte FINAL guardado en: {final_path}")
 
     except Exception as e:
         print(f"Error aplicando estilos: {e}")

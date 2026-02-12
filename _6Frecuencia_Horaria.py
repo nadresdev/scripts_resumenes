@@ -199,7 +199,7 @@ def generate_frecuencia_report():
     print(f"Procesando: {latest_file}")
     
     try:
-        # Cargar con pandas para datos
+        # Cargar con pandas
         original_sheets = pd.read_excel(latest_file, sheet_name=None)
         
         if 'Detalle_Leads_Unicos' not in original_sheets:
@@ -220,7 +220,6 @@ def generate_frecuencia_report():
             return
             
         # Crear columna Franja Horaria
-        # 00-01, 01-02...
         df_filtered['hour_int'] = df_filtered['fxCreated'].apply(lambda x: f"{x.hour:02d}-{x.hour+1:02d}" if pd.notnull(x) else "Unknown")
         df_filtered['mes_sort'] = df_filtered['fxCreated'].dt.to_period('M')
 
@@ -228,35 +227,47 @@ def generate_frecuencia_report():
         unique_months = sorted(df_filtered['mes_sort'].unique(), reverse=True)
         final_rows_list = []
         
-        # Obtener columnas base de structure (usando un dummy run)
+        # Obtener columnas base de structure
         dummy_df = calculate_metrics(df_filtered.head(1), 'hour_int')
-        base_columns = dummy_df.columns.tolist()
+        dummy_df.rename(columns={'hour_int': 'hora_franja'}, inplace=True)
+        
+        # DEFINIR ORDEN EXPLICITO COLUMNAS
+        # hora_franja PRIMERO
+        cols = dummy_df.columns.tolist()
+        if 'hora_franja' in cols:
+            cols.remove('hora_franja')
+            cols.insert(0, 'hora_franja')
+        base_columns = cols
         
         for mes in unique_months:
-            # Separator Row
-            mes_label = mes.strftime('%B %Y').upper()
-            separator_row = {col: '' for col in base_columns}
-            separator_row[base_columns[0]] = f"MES: {mes_label}" # Primera col es 'hora_franja' (alias de hour_int)
-            final_rows_list.append(pd.DataFrame([separator_row]))
+            pass # Solo para el loop
             
             # Data Mes
             df_month = df_filtered[df_filtered['mes_sort'] == mes].copy()
             
             if df_month.empty: continue
             
-            # Group By Hour (Automaticamente omite franjas sin datos)
+            mes_label = mes.strftime('%B %Y').upper()
+            
+            # Separator Row
+            separator_row = {col: '' for col in base_columns}
+            separator_row['hora_franja'] = f"MES: {mes_label}" 
+            final_rows_list.append(pd.DataFrame([separator_row]))
+            
+            # Group By Hour
             hourly_stats = calculate_metrics(df_month, group_col='hour_int')
             if not hourly_stats.empty:
                  hourly_stats.rename(columns={'hour_int': 'hora_franja'}, inplace=True)
                  hourly_stats = hourly_stats.sort_values('hora_franja')
+                 hourly_stats = hourly_stats.reindex(columns=base_columns, fill_value=0)
                  final_rows_list.append(hourly_stats)
             
             # Total Mes Row
-            # Usamos un dummy group col
             df_month['dummy_group'] = 'TOTAL MES'
             month_total = calculate_metrics(df_month, group_col='dummy_group')
             month_total.rename(columns={'dummy_group': 'hora_franja'}, inplace=True)
             month_total['hora_franja'] = "TOTAL MES"
+            month_total = month_total.reindex(columns=base_columns, fill_value=0)
             final_rows_list.append(month_total)
             
             # Empty Row separator
@@ -265,25 +276,55 @@ def generate_frecuencia_report():
             
         final_df = pd.concat(final_rows_list, ignore_index=True)
         
-        # Guardar en nueva pestaa
-        # Usamos openpyxl para append sin borrar
-        with pd.ExcelWriter(latest_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+        # PREPARAR NUEVO ARCHIVO
+        # Generar nombre nuevo timestamps
+        base_name = os.path.basename(latest_file)
+        # Intentar preservar parte del nombre original o simplemente generar uno nuevo
+        # Asumimos formato PROVIDER_RESUMEN_EJECUTIVO_FECHA_HORA.xlsx
+        parts = base_name.split('_RESUMEN_EJECUTIVO_')
+        provider = parts[0] if len(parts) > 0 else "UNKNOWN"
+        
+        timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
+        
+        # NUEVA RUTA DE SALIDA: KPI_SMART/FRECUENCIA
+        # El input estaba en RESUMEN_EJECUTIVO, subimos un nivel y entramos a FRECUENCIA
+        base_dir = os.path.dirname(input_dir) # KPI_SMART
+        output_dir = os.path.join(base_dir, "FRECUENCIA")
+        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        # NOMBRE DE ARCHIVO: PROVIDER_FRECUENCIA_TIMESTAMP.xlsx (Patron solicitado)
+        # User dijo: "guardarlo en FRECUENCIA CON EL PATRON DE NOMBRE CORRESPONDIENTE"
+        # Asumo que se refiere a mantener el patrÓn del archivo origen pero en la carpeta nueva?
+        # O quiza PROVIDER_FRECUENCIA_...
+        # Voy a usar PROVIDER_FRECUENCIA_... para diferenciarlo claramente del Ejecutivo base.
+        output_filename = f"{provider}_FRECUENCIA_{timestamp}.xlsx"
+        output_path = os.path.join(output_dir, output_filename)
+        
+        print(f"Guardando NUEVO archivo con Frecuencia en: {output_path}")
+
+        # Guardar todas las hojas + Frecuencia
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+             # Copiar hojas originales
+             for sheet_name, df_sheet in original_sheets.items():
+                 # Evitar duplicar Frecuencia si ya exista (la estamos regenerando)
+                 if sheet_name != 'Frecuencia':
+                      df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
+             
+             # Agregar Frecuencia agregada
              final_df.to_excel(writer, sheet_name='Frecuencia', index=False)
              
-             # Estilos
+             # Estilos Basicos Frecuencia (Ancho)
              wb = writer.book
              ws = wb['Frecuencia']
-             
-             # Comentarios
              for col_idx, col_name in enumerate(final_df.columns, 1):
                  cell = ws.cell(row=1, column=col_idx)
                  if col_name in FRECUENCIA_COMMENTS:
                      cell.comment = Comment(FRECUENCIA_COMMENTS[col_name], "System")
-                 
-                 # Ajustar Ancho
                  ws.column_dimensions[cell.column_letter].width = 20
-                 
-        print(f"Se agreg la hoja 'Frecuencia' a {latest_file} (Separado por Mes)")
+
+        print("Archivo generado exitosamente en carpeta FRECUENCIA.")
 
     except Exception as e:
         print(f"Error generando reporte Frecuencia: {e}")
