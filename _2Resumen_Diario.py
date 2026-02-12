@@ -202,7 +202,7 @@ def calculate_metrics(df_grouper, group_col):
     df_grouper['total_seconds_call'] = df_grouper[time_cols].sum(axis=1)
     tiempo_total = df_grouper.groupby(group_col)['total_seconds_call'].sum().reset_index(name='tiempo_total_llamadas_seg')
     
-    # Medianas Generales
+    # --- Medianas Generales ---
     df_grouper['tmo_total_registro'] = pd.to_numeric(df_grouper['tmo_total_registro'], errors='coerce').fillna(0)
     tmo_mediana = df_grouper[df_grouper['tmo_total_registro'] > 0].groupby(group_col)['tmo_total_registro'].median().reset_index(name='mediana_tmo_x_periodo_seg')
     
@@ -211,6 +211,24 @@ def calculate_metrics(df_grouper, group_col):
     
     df_grouper['sla_seg'] = pd.to_numeric(df_grouper['sla_seg'], errors='coerce')
     sla_mediana = df_grouper.groupby(group_col)['sla_seg'].median().reset_index(name='mediana_sla_seg')
+    
+    # --- Mediana ACW (timeAcw1...10 acumulado) ---
+    acw_cols = [f'timeAcw{i}' for i in range(1, 11)]
+    for col in acw_cols:
+         if col not in df_grouper.columns: df_grouper[col] = 0
+         else: df_grouper[col] = pd.to_numeric(df_grouper[col], errors='coerce').fillna(0)
+    
+    # Calcular ACW Total por Lead
+    df_grouper['total_acw_lead'] = df_grouper[acw_cols].sum(axis=1)
+    
+    # Calcular Mediana Diaria de esos totales
+    # (Opcional: Filtrar > 0 si solo interesa ACW efectivo, pero ACW puede ser 0 y vlido)
+    # Asumimos que queremos la mediana de TODOS los leads gestionados (contactados?) o todos los insertados?
+    # Usualmente se mide sobre los gestionados (contactados o con intento). 
+    # Si un lead no se llam, su ACW es 0. Si se incluye en la mediana, baja mucho.
+    # Filtraremos por contactado=True o tmo_total > 0 para ser consistente con TMO.
+    acw_mediana = df_grouper[df_grouper['tmo_total_registro'] > 0].groupby(group_col)['total_acw_lead'].median().reset_index(name='timeAcw_mediana_dia_seg')
+
     
     # --- Medianas SLA por Franja (Operativo, Extra, FDS) ---
     # SLA Operativo
@@ -243,6 +261,7 @@ def calculate_metrics(df_grouper, group_col):
     summary = summary.merge(tmo_mediana, on=group_col, how='left')
     summary = summary.merge(tmo_venta_mediana, on=group_col, how='left')
     summary = summary.merge(sla_mediana, on=group_col, how='left')
+    summary = summary.merge(acw_mediana, on=group_col, how='left')
     
     # Merge SLA Franjas
     summary = summary.merge(sla_op, on=group_col, how='left')
@@ -267,6 +286,7 @@ def calculate_metrics(df_grouper, group_col):
     summary['mediana_tmo_x_periodo_hms'] = summary['mediana_tmo_x_periodo_seg'].apply(seconds_to_hms)
     summary['mediana_tmo_venta_x_periodo_hms'] = summary['mediana_tmo_venta_x_periodo_seg'].apply(seconds_to_hms)
     summary['mediana_sla_hms'] = summary['mediana_sla_seg'].apply(seconds_to_hms)
+    summary['timeAcw_mediana_dia_hms'] = summary['timeAcw_mediana_dia_seg'].apply(seconds_to_hms)
     
     # Format HMS Franjas
     summary['sla_operativo_mediana_hms'] = summary['sla_operativo_mediana_seg'].apply(seconds_to_hms)
@@ -275,7 +295,8 @@ def calculate_metrics(df_grouper, group_col):
     
     # Fill NA HMS
     hms_cols = ['tiempo_total_llamadas_hms', 'mediana_tmo_x_periodo_hms', 'mediana_tmo_venta_x_periodo_hms', 
-                'mediana_sla_hms', 'sla_operativo_mediana_hms', 'sla_extra_mediana_hms', 'sla_fds_mediana_hms']
+                'mediana_sla_hms', 'sla_operativo_mediana_hms', 'sla_extra_mediana_hms', 'sla_fds_mediana_hms',
+                'timeAcw_mediana_dia_hms']
     for col in hms_cols:
          summary[col] = summary[col].fillna("00:00:00")
     
@@ -286,7 +307,8 @@ def calculate_metrics(df_grouper, group_col):
         'mediana_tmo_x_periodo_seg', 'mediana_tmo_x_periodo_hms',
         'mediana_tmo_venta_x_periodo_seg', 'mediana_tmo_venta_x_periodo_hms',
         'mediana_sla_seg', 'mediana_sla_hms',
-        'sla_operativo_mediana_hms', 'sla_extra_mediana_hms', 'sla_fds_mediana_hms'
+        'sla_operativo_mediana_hms', 'sla_extra_mediana_hms', 'sla_fds_mediana_hms',
+        'timeAcw_mediana_dia_hms'
     ]
     return summary[final_cols]
 
