@@ -16,7 +16,7 @@ COLOR_TOTAL = "FF8169"
 
 COMMENTS_EJECUTIVO = {
     "Total leads recibidos": "todos los >=2026",
-    "Leads nicos analizados": "todos los >=2026",
+    "Leads Unicos analizados": "registros sin duplicado todos los >=2026",
     "Contactados (unicos)": "todos los contactado si",
     "No contactados (Unicos)": "todos los contactado no",
     "Contactabilidad % (unicos)": "todos los contactado si/todos los >=2026 * 100",
@@ -26,7 +26,7 @@ COMMENTS_EJECUTIVO = {
     "interacciones_sin_contacto": "contar(todos los tmo=0 o nulo)",
     "Conversin % (contactados)": "leads venta Si/todos los contactado si*100",
     "conversion sobre interacciones con contacto_%": "interacciones de venta/ interacciones tmo > 0",
-    "conv_contactado_cerrado_%": "leads (venta=SI Y status=CERRADO) / leads contactados * 100",
+    "conv_contactado_cerrado_%": "leads venta /leads contactados si",
     "interacciones en venta": "interacciones resuldesc= VENTA /POLIZA",
     "Total interacciones": "conteo de todos los tmo>0",
     "TMO totalizado (hh:mm:ss)": "sumatoria de todos los tmo>0",
@@ -42,31 +42,45 @@ COMMENTS_EJECUTIVO = {
 }
 
 COMMENTS_DIARIO_GENERIC = {
-    # Columnas comunes
+    # Columnas comunes y Agentes
     "fecha": "Fecha del registro",
     "agente": "Nombre del agente",
-    "leads_insertados": "Total leads recibidos",
-    "contactados": "Total leads con al menos 1 TMO > 0",
-    "ventas": "Total leads con venta=SI",
-    "leads_cerrados": "Total leads con status CERRADO",
-    "int_contacto": "Interacciones con contacto (TMO>0)",
-    "int_sin_contacto": "Interacciones sin contacto (TMO=0)",
-    "interacciones_ventas": "Interacciones que resultaron en venta",
-    "interacciones_total": "Suma de interacciones (contacto + intentos)",
-    "tiempo_total_llamadas_hms": "Suma de tiempo de llamada total",
-    "contactabilidad_%": "Porcentaje de leads contactados sobre insertados (contactados / leads_insertados * 100)",
-    "conversion_%": "Porcentaje de ventas sobre leads contactados (ventas / contactados * 100)",
-    "mediana_tmo_x_periodo_seg": "Mediana TMO General (seg)",
-    "mediana_tmo_x_periodo_hms": "Mediana TMO General (TMO>0)",
-    "mediana_tmo_venta_x_periodo_seg": "Mediana TMO Ventas (seg)",
-    "mediana_tmo_venta_x_periodo_hms": "Mediana TMO Ventas",
-    "mediana_sla_seg": "Mediana SLA Global (seg)",
-    "mediana_sla_hms": "Mediana SLA Global",
+    "leads_insertados": "Total leads únicos",
+    "contactados": "Leads con TMO>0",
+    "ventas": "Leads con venta=SI y status=CERRADO",
+    "leads_cerrados": "Leads únicos cerrados por el agente",
+    "int_contacto": "Interacciones con TMO>0",
+    "int_sin_contacto": "Interacciones con TMO=0",
+    "interacciones_ventas": "Interacciones con Venta=SI",
+    "interacciones_total": "Suma interacciones (contacto + sin contacto)",
+    
+    # Porcentajes Agentes y Diario
+    "contactabilidad_%": "contactados / leads_insertados * 100",
+    "conversion_%": "ventas / contactados * 100",
+    "conversion_contactos_%": "interacciones_ventas / int_contacto * 100",
+    "conv_contactado_cerrado_%": "ventas / leads_cerrados * 100",
+    
+    # Tiempos HMS
+    "tiempo_total_llamadas_hms": "Suma total TimeCall",
+    "tmo_total_hms": "Suma TMOs",
+    "tmo_total_mediana_hms": "Mediana TMOs (General)",
+    "tmo_ventas_hms": "Suma TMOs (Ventas)",
+    "tmo_ventas_mediana_hms": "Mediana TMOs (Ventas)",
+    "tmo_no_venta_hms": "Suma TMOs (No Ventas)",
+    "tmo_no_venta_mediana_hms": "Mediana TMOs (No Ventas)",
+    
+    # SLA y ACW
+    "sla_hms_medio": "Promedio SLA",
+    "sla_mediana_hms": "Mediana SLA (Global)",
     "sla_operativo_mediana_hms": "Mediana SLA (10-18h L-V)",
     "sla_extra_mediana_hms": "Mediana SLA (Extra Horario)",
     "sla_fds_mediana_hms": "Mediana SLA (FDS)",
-    "timeAcw_mediana_dia_hms": "Mediana ACW por lead",
-    "hora_franja": "Franja horaria basada en fxCreated"
+    "time_acw_hms": "Suma ACW",
+    "acw_mediana_hms": "Mediana ACW",
+    
+    # Otros
+    "mediana_tmo_x_periodo_hms": "Mediana TMO periodo",
+    "hora_franja": "Franja horaria (fxCreated)"
 }
 
 # Mapeo Hoja -> Diccionario
