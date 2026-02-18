@@ -64,7 +64,7 @@ def generate_executive_summary():
         df_filtered['hour'] = df_filtered['fxCreated'].dt.hour
         conditions = [
             (df_filtered['day_of_week'] >= 5),
-            (df_filtered['hour'] >= 10) & (df_filtered['hour'] < 18)
+            (df_filtered['hour'] >= 10) & (df_filtered['hour'] < 20)
         ]
         choices = ['FDS', 'OPERATIVO']
         df_filtered['time_category'] = np.select(conditions, choices, default='EXTRA')
@@ -100,8 +100,11 @@ def generate_executive_summary():
             "SLA OPERATIVO (10-20 Lu-Vi)", # Mediana
             "SLA EXTRAHORARIO (Lu-Vi)", # Mediana
             "SLA FIN DE SEMANA", # Mediana
+            "Tiempo hasta primer contacto efectivo OPERATIVO (hh:mm:ss)", # Mediana franja OPERATIVO
+            "Tiempo hasta primer contacto efectivo EXTRAHORARIO (hh:mm:ss)", # Mediana franja EXTRA
+            "Tiempo hasta primer contacto efectivo FDS (hh:mm:ss)", # Mediana franja FDS
             "ACW Mediana (hh:mm:ss)", # ACW Mediana
-            "Total tiempo llamadas" # sumatoria de todo el tiempo en llamadas (timecall)
+            "Total tiempo llamadas", # sumatoria de todo el tiempo en llamadas (timecall)
         ]
 
         def get_metrics_for_group(df_g):
@@ -264,7 +267,58 @@ def generate_executive_summary():
             
             metrics["ACW Mediana (hh:mm:ss)"] = seconds_to_hms(acw_med)
             metrics["Total tiempo llamadas"] = seconds_to_hms(sum_time_call_total)
-            
+
+            # --- Tiempo hasta primer contacto efectivo (por franja) ---
+            # Criterio: entre todos los intentos que cumplan timeCall[i]>0 y callAgent[i] no vacio,
+            # tomar el que tenga fecha[i] MAS CERCANA a fxCreated (menor diff_secs positivo).
+            # Se acumula por franja (time_category del lead) y se reporta la MEDIANA.
+            secs_op = []
+            secs_ex = []
+            secs_fds = []
+            fx_created_series = pd.to_datetime(df_g['fxCreated'], errors='coerce')
+            cat_series = df_g['time_category'] if 'time_category' in df_g.columns else pd.Series('', index=df_g.index)
+
+            for idx in df_g.index:
+                fx_c = fx_created_series.loc[idx]
+                if pd.isna(fx_c):
+                    continue
+                fx_c_naive = fx_c.tz_convert(None) if fx_c.tzinfo is not None else fx_c
+                categoria = cat_series.loc[idx]
+
+                # Recopilar todos los candidatos validos para este lead
+                candidatos = []
+                for i in range(1, 11):
+                    tc_col = f'timeCall{i}'
+                    ag_col = f'callAgent{i}'
+                    fe_col = f'fecha{i}'
+                    tc_val = pd.to_numeric(df_g.at[idx, tc_col], errors='coerce') if tc_col in df_g.columns else np.nan
+                    ag_val = str(df_g.at[idx, ag_col]).strip() if ag_col in df_g.columns else ''
+                    fe_val = df_g.at[idx, fe_col] if fe_col in df_g.columns else None
+                    if (not pd.isna(tc_val) and tc_val > 0
+                            and ag_val not in ('', 'nan', 'NaN', 'None', 'NAN')):
+                        fe_dt = pd.to_datetime(fe_val, errors='coerce')
+                        if not pd.isna(fe_dt):
+                            if fe_dt.tzinfo is not None:
+                                fe_dt = fe_dt.tz_convert(None)
+                            diff_secs = (fe_dt - fx_c_naive).total_seconds()
+                            if diff_secs >= 0:
+                                candidatos.append(diff_secs)
+
+                # Seleccionar el candidato con fecha mas cercana a fxCreated (menor diff)
+                if candidatos:
+                    mejor = min(candidatos)
+                    if categoria == 'OPERATIVO':
+                        secs_op.append(mejor)
+                    elif categoria == 'EXTRA':
+                        secs_ex.append(mejor)
+                    elif categoria == 'FDS':
+                        secs_fds.append(mejor)
+
+            metrics["Tiempo hasta primer contacto efectivo OPERATIVO (hh:mm:ss)"] = seconds_to_hms(np.median(secs_op) if secs_op else 0)
+            metrics["Tiempo hasta primer contacto efectivo EXTRAHORARIO (hh:mm:ss)"] = seconds_to_hms(np.median(secs_ex) if secs_ex else 0)
+            metrics["Tiempo hasta primer contacto efectivo FDS (hh:mm:ss)"] = seconds_to_hms(np.median(secs_fds) if secs_fds else 0)
+
+
             return metrics
 
         
@@ -279,7 +333,7 @@ def generate_executive_summary():
             m_metrics = get_metrics_for_group(df_m)
             
             # En columnas mensuales, Total Recibidos es el total de ESE mes (ya filtrado por ao 2026? 
-            # Si el mes es de 2026, son todos. Si hubiera meses anteriores se excluiran.
+            # Si el mes es de 2026, son todos. Si hubiera meses anteriores se excluirian.
             # Asumimos que la columna es "Leads Recibidos (Ese Mes)".
             
             col_vals = []
@@ -390,7 +444,10 @@ def generate_executive_summary():
                     "SLA EXTRAHORARIO (Lu-Vi)": "Mediana de sla en la franja fuera de 10-20 dias Lu-Vi por fxCreated",
                     "SLA FIN DE SEMANA": "Mediana de sla en la franja no  Lu-Vi por fxCreated",
                     "ACW Mediana (hh:mm:ss)": "ACW Mediana",
-                    "Total tiempo llamadas": "sumatoria de todo el tiempo en llamadas (timecall)"
+                    "Total tiempo llamadas": "sumatoria de todo el tiempo en llamadas (timecall)",
+                    "Tiempo hasta primer contacto efectivo OPERATIVO (hh:mm:ss)": "Mediana de fxCreated->fecha[i] del primer contacto real (timeCall10->1) para leads en franja OPERATIVO (10-20 Lu-Vi)",
+                    "Tiempo hasta primer contacto efectivo EXTRAHORARIO (hh:mm:ss)": "Mediana de fxCreated->fecha[i] del primer contacto real (timeCall10->1) para leads en franja EXTRAHORARIO (Lu-Vi fuera de 10-20)",
+                    "Tiempo hasta primer contacto efectivo FDS (hh:mm:ss)": "Mediana de fxCreated->fecha[i] del primer contacto real (timeCall10->1) para leads en franja FDS (Sabado/Domingo)"
                  }
                  
                  max_row = ws.max_row
